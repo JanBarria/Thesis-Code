@@ -74,8 +74,8 @@ class RosslerEncryptor:
         sample_rate, samples = wavfile.read(filepath)
 
         if samples.ndim == 2:
-            print("[RosslerEncryptor] Stereo → mono downmix")
-            samples = samples.mean(axis=1).astype(np.int16)
+            print("[RosslerEncryptor] Stereo detected — taking left channel (ch0)")
+            samples = samples[:, 0]
 
         if samples.dtype != np.int16:
             samples = samples.astype(np.int16)

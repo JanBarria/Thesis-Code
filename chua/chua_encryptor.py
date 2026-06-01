@@ -99,8 +99,8 @@ class ChuaEncryptor:
 
         # ── Handle stereo: downmix to mono ────────────────────────────────
         if samples.ndim == 2:
-            print("[ChuaEncryptor] Stereo detected — downmixing to mono")
-            samples = samples.mean(axis=1).astype(np.int16)
+            print("[ChuaEncryptor] Stereo detected — taking left channel (ch0)")
+            samples = samples[:, 0]
 
         # ── Ensure int16 ──────────────────────────────────────────────────
         if samples.dtype != np.int16:
