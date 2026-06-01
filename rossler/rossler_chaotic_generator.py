@@ -79,14 +79,21 @@ class RosslerGenerator:
 
     Attributes:
         a, b, c  (float): Bifurcation parameters
-        dt       (float): Integration time step (default 0.05)
-        x0,y0,z0 (float): Initial conditions (secret key)
+        dt       (float): Integration time step — VHDL: 1310/65536 ≈ 0.02
+        x0,y0,z0 (float): Initial conditions — VHDL resets to (1.0, 1.0, 1.0)
+
+    NOTE: dt and initial conditions are matched to rossler_core.vhd.
+    The VHDL resets all state registers to 65536 (= 1.0 in Q16.16) and
+    uses 1310/65536 as the Euler step, identical to chua_core.vhd.
     """
+
+    # Exact Q16.16 integer from rossler_core.vhd, decoded
+    _VHDL_DT = 1310 / 65536   # ≈ 0.01999
 
     def __init__(self,
                  a=0.2, b=0.2, c=5.7,
-                 dt=0.05,
-                 x0=0.1, y0=0.0, z0=0.0):
+                 dt=1310/65536,
+                 x0=1.0, y0=1.0, z0=1.0):
 
         # ── Parameter validation ──────────────────────────────────────────
         assert a > 0,          "Parameter a must be positive for chaos"
@@ -110,10 +117,11 @@ class RosslerGenerator:
         self._dt_q = to_fixed(dt)
 
     # ── Modulo-Map Stabilization ──────────────────────────────────────────
-    def _stabilize(self, q, bound=25.0):
+    def _stabilize(self, q, bound=500.0):
         """
-        Wrap state variable into [-bound, +bound].
-        Rössler has larger z excursions than Chua, so bound=25.
+        Safety clamp only — rossler_core.vhd has NO modulo stabilization.
+        Bound is set high (500) so it never triggers during normal operation,
+        matching VHDL behavior while preventing Python float overflow.
         """
         x = to_float(q)
         if abs(x) > bound:

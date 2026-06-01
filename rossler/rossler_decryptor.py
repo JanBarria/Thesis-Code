@@ -54,9 +54,9 @@ class RosslerDecryptor:
     """
 
     def __init__(self,
-                 x0=0.1, y0=0.0, z0=0.0,
+                 x0=1.0, y0=1.0, z0=1.0,
                  a=0.2, b=0.2, c=5.7,
-                 dt=0.05,
+                 dt=1310/65536,
                  output_dir=None):
 
         self.a   = a

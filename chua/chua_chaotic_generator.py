@@ -83,18 +83,29 @@ class ChuaGenerator:
     Chua Circuit chaotic oscillator with Q16.16 fixed-point arithmetic.
 
     Attributes:
-        alpha  (float): System parameter (default 9.0)
-        beta   (float): System parameter (default 14.28)
-        a      (float): Chua diode inner slope (default -1.143)
-        b      (float): Chua diode outer slope (default -0.714)
-        dt     (float): Integration time step (default 0.01)
+        alpha  (float): System parameter — VHDL: 1022361/65536 ≈ 15.6
+        beta   (float): System parameter — VHDL: 1835008/65536 = 28.0
+        a      (float): Chua diode slope used in OUTER segments (|x|>1)
+        b      (float): Chua diode slope used in INNER segment  (|x|<=1)
+        dt     (float): Integration time step — VHDL: 1310/65536 ≈ 0.02
         x0, y0, z0 (float): Initial conditions (secret key)
+
+    NOTE: Diode segment assignment matches chua_core.vhd (MyHDL-generated).
+    The VHDL uses 'a' (-1.143) in the outer piecewise branches and 'b'
+    (-0.714) in the inner branch — opposite of the classical convention.
+    Parameters alpha, beta, dt are decoded from the exact VHDL Q16.16
+    constants to ensure identical trajectories on both boards.
     """
 
+    # Exact Q16.16 integers from chua_core.vhd, decoded to float
+    _VHDL_ALPHA = 1022361 / 65536   # ≈ 15.5999
+    _VHDL_BETA  = 1835008 / 65536   # = 28.0
+    _VHDL_DT    = 1310    / 65536   # ≈ 0.01999
+
     def __init__(self,
-                 alpha=9.0, beta=14.28,
+                 alpha=1022361/65536, beta=1835008/65536,
                  a=-1.143, b=-0.714,
-                 dt=0.01,
+                 dt=1310/65536,
                  x0=0.1, y0=0.0, z0=0.0):
 
         # ── Parameter validation ──────────────────────────────────────────
@@ -124,26 +135,31 @@ class ChuaGenerator:
     # ── Chua Diode (piecewise-linear nonlinearity) ────────────────────────
     def _chua_diode_float(self, x):
         """
-        Evaluate f(x) = b*x + 0.5*(a-b)*(|x+1| - |x-1|)
-        in floating-point for numerical accuracy during simulation.
+        Piecewise Chua diode matching chua_core.vhd segment assignment:
+          |x| <= 1  →  b * x              (inner, slope b)
+          x  >  1   →  a*x + (a-b)        (outer, slope a)
+          x  < -1   →  a*x - (a-b)        (outer, slope a)
         """
-        return (self.b * x +
-                0.5 * (self.a - self.b) * (abs(x + 1.0) - abs(x - 1.0)))
+        if x > 1.0:
+            return self.a * x + (self.a - self.b)
+        elif x < -1.0:
+            return self.a * x - (self.a - self.b)
+        else:
+            return self.b * x
 
     def _chua_diode_fixed(self, x_q):
         """
-        Evaluate Chua diode in Q16.16 fixed-point.
-        Uses conditional branching matching piecewise-linear segments.
+        Q16.16 Chua diode — exact mirror of chua_core.vhd logic.
+        Outer branches (|x|>1) use self.a; inner branch uses self.b.
         """
         x = to_float(x_q)
 
-        # Piecewise evaluation — hardware-friendly conditional logic
         if x > 1.0:
-            fx = self.b * x + (self.a - self.b)
+            fx = self.a * x + (self.a - self.b)
         elif x < -1.0:
-            fx = self.b * x - (self.a - self.b)
+            fx = self.a * x - (self.a - self.b)
         else:
-            fx = self.a * x
+            fx = self.b * x
 
         return to_fixed(fx)
 

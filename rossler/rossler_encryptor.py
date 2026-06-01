@@ -52,9 +52,9 @@ class RosslerEncryptor:
     """
 
     def __init__(self,
-                 x0=0.1, y0=0.0, z0=0.0,
+                 x0=1.0, y0=1.0, z0=1.0,
                  a=0.2, b=0.2, c=5.7,
-                 dt=0.05,
+                 dt=1310/65536,
                  output_dir=None):
 
         self.generator  = RosslerGenerator(a=a, b=b, c=c, dt=dt,
@@ -221,9 +221,9 @@ if __name__ == "__main__":
         description="Rössler System Audio Encryptor — TRANSMITTER SIDE")
     parser.add_argument("--input",  required=True,
                         help="Path to input .wav file")
-    parser.add_argument("--x0",    type=float, default=0.1)
-    parser.add_argument("--y0",    type=float, default=0.0)
-    parser.add_argument("--z0",    type=float, default=0.0)
+    parser.add_argument("--x0",    type=float, default=1.0)
+    parser.add_argument("--y0",    type=float, default=1.0)
+    parser.add_argument("--z0",    type=float, default=1.0)
     parser.add_argument("--outdir", default=None)
     args = parser.parse_args()
 

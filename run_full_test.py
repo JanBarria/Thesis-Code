@@ -240,10 +240,10 @@ def main(wav_path=None):
     print("  PART 2: RÖSSLER SYSTEM PIPELINE")
     print("█"*60)
 
-    ross_enc = RosslerEncryptor(x0=0.1, y0=0.0, z0=0.0, output_dir=rossler_out)
+    ross_enc = RosslerEncryptor(x0=1.0, y0=1.0, z0=1.0, output_dir=rossler_out)
     ross_result = ross_enc.encrypt(test_wav)
 
-    ross_dec = RosslerDecryptor(x0=0.1, y0=0.0, z0=0.0, output_dir=rossler_out)
+    ross_dec = RosslerDecryptor(x0=1.0, y0=1.0, z0=1.0, output_dir=rossler_out)
     ross_metrics = ross_dec.decrypt(
         encrypted_wav_path = ross_result['enc_path'],
         original_wav_path  = test_wav,
