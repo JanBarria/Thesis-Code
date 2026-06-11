@@ -105,11 +105,12 @@ begin
     begin
         if rising_edge(clk) then
             if rst = '1' then
-                x_s0 <= (others => '0');
-                y_s0 <= (others => '0');
-                z_s0 <= (others => '0');
-                x_p1_s0 <= (others => '0');
-                x_m1_s0 <= (others => '0');
+                -- FIX: Initialize pipeline with initial conditions
+                x_s0 <= to_signed(6554, 32);  -- 0.1
+                y_s0 <= (others => '0');      -- 0.0
+                z_s0 <= (others => '0');      -- 0.0
+                x_p1_s0 <= to_signed(72090, 32);  -- 0.1 + 1.0 = 1.1
+                x_m1_s0 <= to_signed(-58982, 32); -- 0.1 - 1.0 = -0.9
             elsif enable = '1' then
                 if sync_enable = '1' then
                     x_s0 <= signed(x_drive);
