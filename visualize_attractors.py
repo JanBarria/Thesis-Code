@@ -56,8 +56,9 @@ from pathlib import Path
 # CONFIGURATION PARAMETERS
 # ==============================================================================
 
-# Input file path (relative to script location)
-INPUT_FILE = 'chaotic_hardware_vectors.txt'
+# Input file paths (relative to script location)
+ROSSLER_FILE = 'rossler_hardware_vectors.txt'
+CHUA_FILE = 'chua_hardware_vectors.txt'
 
 # Q16.16 fixed-point scaling factor
 # Hardware multiplies floats by 65536 to convert to integers
@@ -140,25 +141,24 @@ def parse_hardware_vector_line(line):
     """
     Parse a single line from the hardware output file.
     
-    Expected format: "rossler_x rossler_y rossler_z chua_x chua_y chua_z"
+    Expected format: "x y z" (three space-separated hex values)
     All values are 32-bit hexadecimal strings (8 characters each).
     
     Args:
         line (str): Single line from input file
     
     Returns:
-        tuple: (rossler_x, rossler_y, rossler_z, chua_x, chua_y, chua_z)
-               All values are floats after conversion
+        tuple: (x, y, z) as floats after conversion
     
     Raises:
-        ValueError: If line doesn't contain exactly 6 hex values
+        ValueError: If line doesn't contain exactly 3 hex values
     """
     # Split line by whitespace and remove empty strings
     hex_values = line.strip().split()
     
     # Validate format
-    if len(hex_values) != 6:
-        raise ValueError(f"Expected 6 hex values, got {len(hex_values)}: {line}")
+    if len(hex_values) != 3:
+        raise ValueError(f"Expected 3 hex values, got {len(hex_values)}: {line}")
     
     # Convert each hex value: hex → signed int → float
     float_values = []
@@ -170,20 +170,18 @@ def parse_hardware_vector_line(line):
     return tuple(float_values)
 
 
-def load_hardware_data(filename):
+def load_single_oscillator_data(filename):
     """
-    Load and parse the complete hardware simulation output file.
+    Load and parse a single oscillator's hardware simulation output file.
     
-    Reads the file line-by-line, converts hex values to floats,
-    and separates into Rössler and Chua data arrays.
+    Reads the file line-by-line, converts hex values to floats.
     
     Args:
         filename (str): Path to input file
     
     Returns:
-        tuple: (rossler_data, chua_data)
-               Each is a numpy array of shape (N, 3) where N is sample count
-               Columns are [X, Y, Z] for each oscillator
+        numpy.ndarray: Array of shape (N, 3) where N is sample count
+                       Columns are [X, Y, Z]
     
     Raises:
         FileNotFoundError: If input file doesn't exist
@@ -194,9 +192,8 @@ def load_hardware_data(filename):
     if not file_path.exists():
         raise FileNotFoundError(f"Input file not found: {filename}")
     
-    # Initialize lists to store parsed data
-    rossler_data = []
-    chua_data = []
+    # Initialize list to store parsed data
+    data = []
     
     # Read and parse file line by line
     print(f"Reading hardware data from: {filename}")
@@ -207,26 +204,48 @@ def load_hardware_data(filename):
                 continue
             
             try:
-                # Parse line: returns (rx, ry, rz, cx, cy, cz)
-                rx, ry, rz, cx, cy, cz = parse_hardware_vector_line(line)
+                # Parse line: returns (x, y, z)
+                x, y, z = parse_hardware_vector_line(line)
                 
-                # Append to respective lists
-                rossler_data.append([rx, ry, rz])
-                chua_data.append([cx, cy, cz])
+                # Append to list
+                data.append([x, y, z])
                 
             except ValueError as e:
                 print(f"Warning: Skipping invalid line {line_num}: {e}")
                 continue
     
-    # Convert lists to numpy arrays for efficient computation
-    rossler_array = np.array(rossler_data)
-    chua_array = np.array(chua_data)
+    # Convert list to numpy array for efficient computation
+    data_array = np.array(data)
     
-    print(f"Successfully loaded {len(rossler_array)} samples")
-    print(f"Rössler data shape: {rossler_array.shape}")
-    print(f"Chua data shape: {chua_array.shape}")
+    print(f"Successfully loaded {len(data_array)} samples")
+    print(f"Data shape: {data_array.shape}")
     
-    return rossler_array, chua_array
+    return data_array
+
+
+def load_hardware_data(rossler_file, chua_file):
+    """
+    Load and parse both oscillators' hardware simulation output files.
+    
+    Args:
+        rossler_file (str): Path to Rössler output file
+        chua_file (str): Path to Chua output file
+    
+    Returns:
+        tuple: (rossler_data, chua_data)
+               Each is a numpy array of shape (N, 3) where N is sample count
+               Columns are [X, Y, Z] for each oscillator
+    
+    Raises:
+        FileNotFoundError: If either input file doesn't exist
+    """
+    print("Loading Rössler oscillator data...")
+    rossler_data = load_single_oscillator_data(rossler_file)
+    
+    print("\nLoading Chua oscillator data...")
+    chua_data = load_single_oscillator_data(chua_file)
+    
+    return rossler_data, chua_data
 
 
 def compute_statistics(data, name):
@@ -356,7 +375,7 @@ def main():
     
     try:
         # Step 1: Load and parse hardware data
-        rossler_data, chua_data = load_hardware_data(INPUT_FILE)
+        rossler_data, chua_data = load_hardware_data(ROSSLER_FILE, CHUA_FILE)
         
         # Step 2: Compute statistics for thesis tables
         compute_statistics(rossler_data, "Rössler")
@@ -411,7 +430,9 @@ def main():
         
     except FileNotFoundError as e:
         print(f"\nError: {e}")
-        print("Please ensure 'chaotic_hardware_vectors.txt' is in the same directory.")
+        print("Please ensure these files are in the same directory:")
+        print(f"  - {ROSSLER_FILE}")
+        print(f"  - {CHUA_FILE}")
     except Exception as e:
         print(f"\nUnexpected error: {e}")
         import traceback
