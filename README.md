@@ -5,6 +5,24 @@
 DLSU ECE Thesis Project | Team MICRO-3-2425-1 | Adviser: Dr. Reggie Gustilo
 Members: Abalos, Barria, Cortes, Jusay
 
+## System Architecture: Hybrid Chua ⊕ Rössler
+
+This thesis implements a **unified hybrid stream cipher** that combines
+both chaotic systems into one keystream:
+
+```
+K_combined[n] = K_chua[n] ⊕ K_rossler[n]
+C[n]          = P[n] ⊕ K_combined[n]
+```
+
+- **Chua subsystem** provides the rigorous Pecora-Carroll sync proof (SO3).
+- **Rössler subsystem** contributes keystream entropy and key-space doubling.
+- **Combined system** has effective key space ≈ 2¹²⁸ (vs ~2⁶⁴ for either alone).
+
+See [docs/HYBRID_ENCRYPTION.md](docs/HYBRID_ENCRYPTION.md) for security
+analysis and the Pecora-Carroll caveats (Rössler y-divergence is real and
+documented).
+
 ---
 
 ## Repository Layout
@@ -23,12 +41,14 @@ chaos_fpga/
 │       └── timing.xdc         # Timing constraints
 ├── python/
 │   ├── reference/           # Bit-exact Python simulator
-│   │   ├── q16_arith.py       # Q16.16 fixed-point helpers
-│   │   ├── chua_generator.py    # Matches chua_core.vhd
-│   │   ├── rossler_generator.py # Matches rossler_pipelined.vhd
-│   │   ├── encryptor.py         # XOR stream cipher (TX side)
-│   │   ├── decryptor.py         # XOR + PC sync (RX side)
-│   │   └── chaos_models.py      # SO1 floating-point math reference
+│   │   ├── q16_arith.py             # Q16.16 fixed-point helpers
+│   │   ├── chua_generator.py        # Matches chua_core.vhd
+│   │   ├── rossler_generator.py     # Matches rossler_pipelined.vhd
+│   │   ├── hybrid_generator.py      # Combined Chua ⊕ Rössler keystream
+│   │   ├── encryptor.py             # Per-subsystem XOR cipher
+│   │   ├── decryptor.py             # Per-subsystem XOR + PC sync
+│   │   ├── hybrid_cipher.py         # Hybrid encrypt/decrypt (canonical)
+│   │   └── chaos_models.py          # SO1 floating-point math reference
 │   ├── pynq_control/        # On-board PYNQ Python (talks to FPGA via AXI GPIO)
 │   │   ├── master_control.py    # MASTER board: free-running, transmit x
 │   │   ├── slave_control.py     # SLAVE board:  receive x, PC sync
@@ -41,7 +61,8 @@ chaos_fpga/
 ├── notebooks/
 │   └── Chaos_Models_Mathematical_Documentation.ipynb
 ├── scripts/
-│   ├── run_full_test.py     # End-to-end reference test
+│   ├── run_full_test.py     # Per-subsystem reference test
+│   ├── run_hybrid_test.py   # Hybrid Chua⊕Rössler end-to-end test (canonical)
 │   └── create_project.tcl   # Vivado project generation
 ├── test_audio/
 │   └── test_audio.wav       # Test audio
@@ -70,10 +91,22 @@ chaos_fpga/
 ```bash
 pip3 install numpy scipy matplotlib
 cd chaos_fpga
+
+# Hybrid test (canonical, recommended)
+python3 scripts/run_hybrid_test.py --wav test_audio/test_audio.wav
+
+# Per-subsystem test (for SO6 component comparison)
 python3 scripts/run_full_test.py
 ```
 
-Expected output:
+Expected hybrid output:
+```
+Sync Mode           Pearson r        BER   SNR (dB)   H (b/B)   Pass
+preshared              1.0000   0.000000        inf     ~6.95   PASS
+pecora_carroll         1.0000   0.000000        inf     ~6.95   PASS
+```
+
+Expected per-subsystem output (for SO6 comparison):
 ```
 System     Sync Mode          Pearson r        BER   SNR (dB)   Pass
 chua       preshared             1.0000   0.000000     ~167     PASS

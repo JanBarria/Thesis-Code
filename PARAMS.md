@@ -123,18 +123,34 @@ differs.
 
 ---
 
-## Encryption Method
+## Encryption Method (Hybrid)
 
-Bitwise XOR stream cipher operating on 16-bit PCM samples:
+The canonical thesis cipher is hybrid Chua ⊕ Rössler:
+
 ```
-C[n] = P[n] ⊕ K[n]
-P[n] = C[n] ⊕ K[n]   (XOR is self-inverse)
+K_combined[n] = K_chua[n] ⊕ K_rossler[n]
+C[n]          = P[n] ⊕ K_combined[n]
+P[n]          = C[n] ⊕ K_combined[n]   (XOR is self-inverse)
 ```
 
 Where:
-- P[n] : 16-bit signed plaintext audio sample
-- K[n] : 16-bit unsigned keystream from chaotic generator
-- C[n] : 16-bit encrypted ciphertext
+- P[n]            : 16-bit signed plaintext audio sample
+- K_chua[n]       : 16-bit keystream from Chua x_state[23:8]
+- K_rossler[n]    : 16-bit keystream from Rössler x_state[23:8]
+- K_combined[n]   : K_chua[n] XOR K_rossler[n]
+- C[n]            : 16-bit encrypted ciphertext
+
+### Per-subsystem mode (used in SO6 comparison only)
+
+For per-system performance comparison (SO6), encryption can also be run
+with a single chaotic source:
+```
+C_chua[n]    = P[n] ⊕ K_chua[n]      (Chua-only, for comparison)
+C_rossler[n] = P[n] ⊕ K_rossler[n]   (Rössler-only, for comparison)
+```
+These per-subsystem ciphers are evaluated in `scripts/run_full_test.py`.
+The hybrid cipher in `scripts/run_hybrid_test.py` is the canonical thesis
+implementation.
 
 ---
 
