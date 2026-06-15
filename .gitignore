@@ -1,0 +1,50 @@
+# Vivado project files
+vivado_project/
+*.jou
+*.log
+*.str
+*.xpr
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.gen/
+
+# Bitstream files (large, should be built locally)
+*.bit
+*.bin
+*.ltx
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Data files (generated during experiments)
+master_data.csv
+slave_data.csv
+analysis_results/
+*.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Made with Bob
