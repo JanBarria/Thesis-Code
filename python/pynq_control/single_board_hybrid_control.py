@@ -45,7 +45,9 @@ except ImportError:
     Overlay = None
 
 # Bitstream lives here on the board
-BITSTREAM = "/home/xilinx/top_wrapper.bit"
+# NOTE: PYNQ also needs the matching .hwh file next to the .bit, with the
+# same base name (chaos_hybrid_single_board.hwh in /home/xilinx/).
+BITSTREAM = "/home/xilinx/chaos_hybrid_single_board.bit"
 
 # AXI GPIO base addresses (CONFIRM in Vivado Address Editor!)
 # Each address corresponds to a single-channel AXI GPIO IP
