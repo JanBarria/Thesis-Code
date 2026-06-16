@@ -115,38 +115,48 @@ rossler    preshared             1.0000   0.000000     ~167     PASS
 rossler    pecora_carroll        1.0000   0.000000     ~167     PASS
 ```
 
-### 2. FPGA hardware test (two PYNQ-Z2 boards)
+### 2. Hardware deployment — three scenarios
 
-#### a. Synthesize bitstreams
+This repo supports three possible hardware demos. Pick based on bandwidth and panel narrative.
+
+#### Scenario A — Single-board SO3 verification (on `single-board` branch)
+Chua + Rössler master/slave (four oscillators) on ONE PYNQ-Z2. Fastest path.
 ```bash
-cd hdl
-vivado -mode batch -source ../scripts/create_project.tcl
-# Build MASTER bitstream first
-# Then edit chaos_sync_top.vhd Y0_INIT/Z0_INIT for slave, rebuild
+git checkout single-board
+# Synthesize hdl/chaos_hybrid_single_board.vhd in Vivado
+scp chaos_hybrid_single_board.bit                       xilinx@<ip>:/home/xilinx/
+scp python/pynq_control/single_board_hybrid_control.py  xilinx@<ip>:/home/xilinx/
+ssh xilinx@<ip> "sudo python3 /home/xilinx/single_board_hybrid_control.py --duration 10"
 ```
+See [docs/SINGLE_BOARD_SO3.md](docs/SINGLE_BOARD_SO3.md).
 
-#### b. Wire boards via PMOD A
-```
-Board 1 PMOD JA1 (TX) ─────► Board 2 PMOD JA2 (RX)
-Board 2 PMOD JA1 (TX) ─────► Board 1 PMOD JA2 (RX)
-Board 1 GND          ─────► Board 2 GND
-```
-
-#### c. Run control scripts
+#### Scenario B — Rössler-only dual-board (legacy)
+Uses original `chaos_sync_top.vhd`. Rössler-only hardware sync; hybrid combine done in Python.
 ```bash
-# On MASTER board (free-running Rössler, transmits x via UART)
-scp python/pynq_control/master_control.py xilinx@<master_ip>:/home/xilinx/
-ssh xilinx@<master_ip> "sudo python3 /home/xilinx/master_control.py"
-
-# On SLAVE board (Pecora-Carroll sync)
-scp python/pynq_control/slave_control.py xilinx@<slave_ip>:/home/xilinx/
-ssh xilinx@<slave_ip> "sudo python3 /home/xilinx/slave_control.py"
+# Build master+slave bitstreams from chaos_sync_top.vhd
+# Flash + run master_control.py / slave_control.py
 ```
 
-#### d. Verify synchronization
+#### Scenario C — Full hybrid dual-board (FULL THESIS CLAIM in hardware)
+One source file `chaos_hybrid_dual_top.vhd` builds two bitstreams via `IS_MASTER` generic.
 ```bash
-python3 python/pynq_control/analyze_sync.py master_data.csv slave_data.csv
-# Expects Pearson r ≥ 0.95
+# Synthesize twice: IS_MASTER=1 → master.bit, IS_MASTER=0 → slave.bit
+scp chaos_hybrid_master.bit                          xilinx@<master_ip>:/home/xilinx/
+scp chaos_hybrid_slave.bit                            xilinx@<slave_ip>:/home/xilinx/
+scp python/pynq_control/hybrid_master_control.py     xilinx@<master_ip>:/home/xilinx/
+scp python/pynq_control/hybrid_slave_control.py      xilinx@<slave_ip>:/home/xilinx/
+
+# Start slave first (blocks on UART read), then master
+ssh xilinx@<slave_ip>  "sudo python3 /home/xilinx/hybrid_slave_control.py  --duration 10"
+ssh xilinx@<master_ip> "sudo python3 /home/xilinx/hybrid_master_control.py --duration 10"
+```
+See [docs/SCENARIO_C_DUAL_BOARD_HYBRID.md](docs/SCENARIO_C_DUAL_BOARD_HYBRID.md).
+
+UART wiring (PMOD A):
+```
+Master PMOD JA1 (TX) ─────► Slave PMOD JA2 (RX)
+Slave  PMOD JA1 (TX) ─────► Master PMOD JA2 (RX)  [optional]
+GND                  ─────► GND
 ```
 
 ---
