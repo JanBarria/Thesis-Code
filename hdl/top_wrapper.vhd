@@ -2,6 +2,7 @@
 -- File        : top_wrapper.vhd
 -- Description : Final top-level bridge connecting the Processing System (PS) 
 --               AXI GPIO wrapper directly to the chaotic fabric math engine.
+--               Updated to eliminate unbuffered I/O placement routing errors.
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -35,44 +36,45 @@ end entity top_wrapper;
 
 architecture structural of top_wrapper is
 
-    -- 1. Declare the Auto-Generated Vivado Block Design Wrapper Component
+    -- 1. Component Declaration matching your chaos_design_wrapper entity ports exactly
     component chaos_design_wrapper is
         port (
-            DDR_addr : inout STD_LOGIC_VECTOR ( 14 downto 0 );
-            DDR_ba : inout STD_LOGIC_VECTOR ( 2 downto 0 );
-            DDR_cas_n : inout STD_LOGIC;
-            DDR_ck_n : inout STD_LOGIC;
-            DDR_ck_p : inout STD_LOGIC;
-            DDR_cke : inout STD_LOGIC;
-            DDR_cs_n : inout STD_LOGIC;
-            DDR_dm : inout STD_LOGIC_VECTOR ( 3 downto 0 );
-            DDR_dq : inout STD_LOGIC_VECTOR ( 31 downto 0 );
-            DDR_dqs_n : inout STD_LOGIC_VECTOR ( 3 downto 0 );
-            DDR_dqs_p : inout STD_LOGIC_VECTOR ( 3 downto 0 );
-            DDR_odt : inout STD_LOGIC;
-            DDR_ras_n : inout STD_LOGIC;
-            DDR_reset_n : inout STD_LOGIC;
-            DDR_we_n : inout STD_LOGIC;
-            FIXED_IO_ddr_vrn : inout STD_LOGIC;
-            FIXED_IO_ddr_vrp : inout STD_LOGIC;
-            FIXED_IO_mio : inout STD_LOGIC_VECTOR ( 53 downto 0 );
-            FIXED_IO_ps_clk : inout STD_LOGIC;
-            FIXED_IO_ps_porb : inout STD_LOGIC;
+            DDR_addr          : inout STD_LOGIC_VECTOR ( 14 downto 0 );
+            DDR_ba            : inout STD_LOGIC_VECTOR ( 2 downto 0 );
+            DDR_cas_n         : inout STD_LOGIC;
+            DDR_ck_n          : inout STD_LOGIC;
+            DDR_ck_p          : inout STD_LOGIC;
+            DDR_cke           : inout STD_LOGIC;
+            DDR_cs_n          : inout STD_LOGIC;
+            DDR_dm            : inout STD_LOGIC_VECTOR ( 3 downto 0 );
+            DDR_dq            : inout STD_LOGIC_VECTOR ( 31 downto 0 );
+            DDR_dqs_n         : inout STD_LOGIC_VECTOR ( 3 downto 0 );
+            DDR_dqs_p         : inout STD_LOGIC_VECTOR ( 3 downto 0 );
+            DDR_odt           : inout STD_LOGIC;
+            DDR_ras_n         : inout STD_LOGIC;
+            DDR_reset_n       : inout STD_LOGIC;
+            DDR_we_n          : inout STD_LOGIC;
+            FCLK_CLK0         : out   STD_LOGIC;
+            FIXED_IO_ddr_vrn  : inout STD_LOGIC;
+            FIXED_IO_ddr_vrp  : inout STD_LOGIC;
+            FIXED_IO_mio      : inout STD_LOGIC_VECTOR ( 53 downto 0 );
+            FIXED_IO_ps_clk   : inout STD_LOGIC;
+            FIXED_IO_ps_porb  : inout STD_LOGIC;
             FIXED_IO_ps_srstb : inout STD_LOGIC;
-            gpio_rtl_0_tri_o : out STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_10_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_11_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_12_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_13_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_1_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_2_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_3_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_4_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_5_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_6_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_7_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_8_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 );
-            gpio_rtl_9_tri_i : in STD_LOGIC_VECTOR ( 31 downto 0 )
+            gpio_rtl_0_tri_o  : out   STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_10_tri_i : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_11_tri_i : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_12_tri_i : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_13_tri_i : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_1_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_2_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_3_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_4_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_5_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_6_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_7_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_8_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 );
+            gpio_rtl_9_tri_i  : in    STD_LOGIC_VECTOR ( 31 downto 0 )
         );
     end component chaos_design_wrapper;
 
@@ -114,15 +116,16 @@ architecture structural of top_wrapper is
     signal W_gpio6_ch1 : std_logic_vector(31 downto 0);
     signal W_gpio6_ch2 : std_logic_vector(31 downto 0);
 
-    -- Internal Clock & System Reset references extracted from the processor
-    signal clk_internal : std_logic;
+    -- Internal Clock & System Reset references
+    signal clk_internal   : std_logic;
     signal rst_internal_n : std_logic;
 
 begin
 
-    -- Standard clock/reset ties derived from the fixed Processing System setup
-    clk_internal   <= FIXED_IO_ps_clk;
-    rst_internal_n <= FIXED_IO_ps_porb;
+    -- Tie hardware reset to high to isolate from unbuffered FIXED_IO pins.
+    -- Your math cores evaluate reset active-low via: (not rst_pl_n) or soft_rst.
+    -- Forcing '1' here allows your Python loop to execute software resets perfectly.
+    rst_internal_n <= '1';
 
     -- Instantiation of the Automated Processing Subsystem Wrapper
     Processor_System_Block : component chaos_design_wrapper
@@ -149,7 +152,8 @@ begin
             FIXED_IO_ps_porb  => FIXED_IO_ps_porb,
             FIXED_IO_ps_srstb => FIXED_IO_ps_srstb,
             
-            -- Bus lines out to your custom VHDL structures
+            FCLK_CLK0         => clk_internal,  -- Securely maps internal fabric clock output
+            
             gpio_rtl_0_tri_o  => W_gpio0_ch1,
             gpio_rtl_1_tri_i  => W_gpio0_ch2,
             gpio_rtl_2_tri_i  => W_gpio1_ch1,
