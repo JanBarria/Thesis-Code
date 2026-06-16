@@ -1,47 +1,70 @@
 #!/usr/bin/env python3
 """
-PYNQ-side control for chaos_hybrid_single_board.bit.
+PYNQ-side control for top_wrapper.bit (single-board hybrid).
 
-Drives a single PYNQ-Z2 hosting four chaotic oscillator instances
-(Chua master + Chua slave + Rössler master + Rössler slave) via 7 AXI GPIO
-instances. Pulses state_step at a user-defined rate, logs all twelve state
-words + the combined master/slave keystreams, and writes CSV for the
-analyze_sync.py script.
+This script controls the bitstream produced from hdl/top_wrapper.vhd, which
+wraps the auto-generated chaos_design_wrapper (block design with 14 single-
+direction AXI GPIO IPs) plus chaos_hybrid_single_board.
 
-Usage (on PYNQ board, as root or in a sudo session):
-    python3 single_board_hybrid_control.py --duration 10 --rate 1000
+GPIO layout (matches top_wrapper.vhd wiring):
 
-This emits hybrid_data.csv with columns:
-    timestamp, mc_x, mc_y, mc_z, sc_x, sc_y, sc_z,
-               mr_x, mr_y, mr_z, sr_x, sr_y, sr_z,
-               m_combined_ks, s_combined_ks
+    axi_gpio_0  →  control register (PS→PL): bit0=soft_rst, bit1=step_trig
+    axi_gpio_1  ←  mc_x   (Chua master x)
+    axi_gpio_2  ←  mc_y   (Chua master y)
+    axi_gpio_3  ←  mc_z   (Chua master z)
+    axi_gpio_4  ←  sc_x   (Chua slave x)
+    axi_gpio_5  ←  sc_y   (Chua slave y)
+    axi_gpio_6  ←  sc_z   (Chua slave z)
+    axi_gpio_7  ←  mr_x   (Rössler master x)
+    axi_gpio_8  ←  mr_y   (Rössler master y)
+    axi_gpio_9  ←  mr_z   (Rössler master z)
+    axi_gpio_10 ←  sr_x   (Rössler slave x)
+    axi_gpio_11 ←  sr_y   (Rössler slave y)
+    axi_gpio_12 ←  m_combined_ks  (master Chua⊕Rössler keystream)
+    axi_gpio_13 ←  s_combined_ks  (slave  Chua⊕Rössler keystream)
+
+NOTE: AXI GPIO base addresses below must match what Vivado assigned in the
+Address Editor (Tools → Address Editor in the block design view). The
+defaults below assume Vivado's standard auto-increment starting at
+0x4120_0000. If your build shows different addresses, edit GPIO_ADDR
+to match.
+
+Usage:
+    sudo python3 single_board_hybrid_control.py --duration 10 --rate 1000
 """
 
 import time
 import csv
 import argparse
-import struct
 
-# These imports only work on a PYNQ-Z2 with the bitstream loaded
 try:
     from pynq import Overlay
     from pynq.lib import AxiGPIO
 except ImportError:
-    print("[WARNING] pynq library not available — this script must run on PYNQ-Z2")
+    print("[WARNING] pynq not available — must run on PYNQ-Z2")
     Overlay = None
 
-BITSTREAM = "/home/xilinx/chaos_hybrid_single_board.bit"
+# Bitstream lives here on the board
+BITSTREAM = "/home/xilinx/top_wrapper.bit"
 
-# AXI GPIO base addresses (from Vivado address editor — adjust to match yours)
-GPIO_BASE = [
-    0x41200000,  # GPIO0: ctrl in, mc_x out
-    0x41210000,  # GPIO1: mc_y, mc_z
-    0x41220000,  # GPIO2: sc_x, sc_y
-    0x41230000,  # GPIO3: sc_z, mr_x
-    0x41240000,  # GPIO4: mr_y, mr_z
-    0x41250000,  # GPIO5: sr_x, sr_y
-    0x41260000,  # GPIO6: m_combined_ks, s_combined_ks (only low 16 bits each used)
-]
+# AXI GPIO base addresses (CONFIRM in Vivado Address Editor!)
+# Each address corresponds to a single-channel AXI GPIO IP
+GPIO_ADDR = {
+    'ctrl':  0x41200000,   # axi_gpio_0  (output PS→PL: control)
+    'mc_x':  0x41210000,   # axi_gpio_1
+    'mc_y':  0x41220000,   # axi_gpio_2
+    'mc_z':  0x41230000,   # axi_gpio_3
+    'sc_x':  0x41240000,   # axi_gpio_4
+    'sc_y':  0x41250000,   # axi_gpio_5
+    'sc_z':  0x41260000,   # axi_gpio_6
+    'mr_x':  0x41270000,   # axi_gpio_7
+    'mr_y':  0x41280000,   # axi_gpio_8
+    'mr_z':  0x41290000,   # axi_gpio_9
+    'sr_x':  0x412A0000,   # axi_gpio_10
+    'sr_y':  0x412B0000,   # axi_gpio_11
+    'm_ks':  0x412C0000,   # axi_gpio_12
+    's_ks':  0x412D0000,   # axi_gpio_13
+}
 
 
 def q16_to_float(val):
@@ -54,18 +77,20 @@ def q16_to_float(val):
 
 def main(duration, rate, out_csv):
     if Overlay is None:
-        raise RuntimeError("pynq not installed — run on the board")
+        raise RuntimeError("pynq library required — run on PYNQ-Z2 board")
 
     print(f"Loading {BITSTREAM}...")
     ol = Overlay(BITSTREAM)
 
     print("Mapping AXI GPIO instances...")
-    gpio = [AxiGPIO(addr) for addr in GPIO_BASE]
+    gpio = {name: AxiGPIO(addr).channel1
+            for name, addr in GPIO_ADDR.items()}
 
-    # Issue soft reset, then deassert
-    gpio[0].channel1.write(0x1)
+    # ── Soft reset cycle ─────────────────────────────────────────────────────
+    print("Issuing soft reset...")
+    gpio['ctrl'].write(0x1)   # rst high
     time.sleep(0.001)
-    gpio[0].channel1.write(0x0)
+    gpio['ctrl'].write(0x0)   # rst low
     time.sleep(0.001)
 
     n_steps = int(duration * rate)
@@ -75,32 +100,28 @@ def main(duration, rate, out_csv):
     print(f"Logging {n_steps} steps at {rate} Hz...")
     t0 = time.time()
     for n in range(n_steps):
-        # Pulse step trigger: write trigger bit high, then low
-        gpio[0].channel1.write(0x2)
-        gpio[0].channel1.write(0x0)
+        # Pulse step_trig (bit 1) — edge detector in fabric produces 1-cycle pulse
+        gpio['ctrl'].write(0x2)
+        gpio['ctrl'].write(0x0)
 
         # Read all state words
-        mc_x = q16_to_float(gpio[0].channel2.read())
-        mc_y = q16_to_float(gpio[1].channel1.read())
-        mc_z = q16_to_float(gpio[1].channel2.read())
-        sc_x = q16_to_float(gpio[2].channel1.read())
-        sc_y = q16_to_float(gpio[2].channel2.read())
-        sc_z = q16_to_float(gpio[3].channel1.read())
-        mr_x = q16_to_float(gpio[3].channel2.read())
-        mr_y = q16_to_float(gpio[4].channel1.read())
-        mr_z = q16_to_float(gpio[4].channel2.read())
-        sr_x = q16_to_float(gpio[5].channel1.read())
-        sr_y = q16_to_float(gpio[5].channel2.read())
-        m_ks = gpio[6].channel1.read() & 0xFFFF
-        s_ks = gpio[6].channel2.read() & 0xFFFF
-
-        # Note: sr_z is not exposed in this minimal GPIO layout to keep
-        # within 7 instances; if needed, expand to GPIO7 or pack with ks.
-
-        rows.append([
-            n / rate, mc_x, mc_y, mc_z, sc_x, sc_y, sc_z,
-            mr_x, mr_y, mr_z, sr_x, sr_y, m_ks, s_ks,
-        ])
+        row = [
+            n / rate,
+            q16_to_float(gpio['mc_x'].read()),
+            q16_to_float(gpio['mc_y'].read()),
+            q16_to_float(gpio['mc_z'].read()),
+            q16_to_float(gpio['sc_x'].read()),
+            q16_to_float(gpio['sc_y'].read()),
+            q16_to_float(gpio['sc_z'].read()),
+            q16_to_float(gpio['mr_x'].read()),
+            q16_to_float(gpio['mr_y'].read()),
+            q16_to_float(gpio['mr_z'].read()),
+            q16_to_float(gpio['sr_x'].read()),
+            q16_to_float(gpio['sr_y'].read()),
+            gpio['m_ks'].read() & 0xFFFF,
+            gpio['s_ks'].read() & 0xFFFF,
+        ]
+        rows.append(row)
 
         # Pace
         target = t0 + (n + 1) * step_interval
@@ -108,20 +129,23 @@ def main(duration, rate, out_csv):
         if sleep > 0:
             time.sleep(sleep)
 
-    print(f"Done. Writing {out_csv}...")
+    wall = time.time() - t0
+    print(f"Done. {len(rows)} samples in {wall:.2f}s "
+          f"(rate ≈ {len(rows)/wall:.1f} Hz)")
+
     with open(out_csv, 'w', newline='') as f:
         w = csv.writer(f)
         w.writerow(['t', 'mc_x', 'mc_y', 'mc_z', 'sc_x', 'sc_y', 'sc_z',
                     'mr_x', 'mr_y', 'mr_z', 'sr_x', 'sr_y',
                     'm_combined_ks', 's_combined_ks'])
         w.writerows(rows)
-    print(f"Wall time: {time.time()-t0:.2f} s, actual rate ≈ {n_steps/(time.time()-t0):.1f} Hz")
+    print(f"Saved → {out_csv}")
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--duration", type=float, default=10.0, help="seconds to log")
-    p.add_argument("--rate", type=float, default=1000.0, help="step rate Hz")
+    p.add_argument("--duration", type=float, default=10.0)
+    p.add_argument("--rate", type=float, default=1000.0)
     p.add_argument("--out", default="hybrid_data.csv")
     args = p.parse_args()
     main(args.duration, args.rate, args.out)
