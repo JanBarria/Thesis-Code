@@ -31,15 +31,9 @@ Master oscillators run free (`sync_enable='0'`); slave oscillators are
 driven (`sync_enable='1'`) by x values written through AXI GPIO from the
 PS (which got them from UART).
 
-> ⚠️ **chua_core IC limitation**: the current chua_core.vhd hardcodes
-> y0=z0=0 at reset (it doesn't expose them as generics). The slave's Chua
-> IC parameters above are aspirational — to actually use them you must
-> add y0/z0 generics to chua_core.vhd and route them to the y_state,
-> z_state reset values. With the current core, the slave's Chua starts
-> at the same reset state as the master's; convergence is then trivially
-> demonstrated only via the transient before steady state. For a
-> rigorous Chua sync demo, parameterize chua_core. This is the one
-> remaining VHDL change before Scenario C is hardware-complete.
+`chua_core.vhd` exposes `Y0_INIT` and `Z0_INIT` generics so the slave
+build genuinely starts at different y, z. Sync convergence is therefore
+visually demonstrable end-to-end.
 
 ---
 

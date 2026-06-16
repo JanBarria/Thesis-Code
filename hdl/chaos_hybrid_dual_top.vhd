@@ -107,6 +107,10 @@ architecture structural of chaos_hybrid_dual_top is
 
     -- Component declarations
     component chua_core is
+        generic (
+            Y0_INIT : integer := 0;
+            Z0_INIT : integer := 0
+        );
         port (
             clk          : in  std_logic;
             rst          : in  std_logic;
@@ -195,6 +199,10 @@ begin
     -- before sync convergence. This is sufficient for SO3 demonstration.
     ----------------------------------------------------------------------------
     chua_inst : chua_core
+        generic map (
+            Y0_INIT => Y0_CHUA,
+            Z0_INIT => Z0_CHUA
+        )
         port map (
             clk          => clk_pl,
             rst          => combined_rst,

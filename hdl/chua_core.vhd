@@ -19,6 +19,13 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity chua_core is
+    generic (
+        -- Initial y, z conditions in Q16.16 (Master defaults: 0, 0).
+        -- For slave instance, pass different values to make sync
+        -- convergence visible — e.g. Y0_INIT=19661 (=0.3), Z0_INIT=13107 (=0.2).
+        Y0_INIT : integer := 0;
+        Z0_INIT : integer := 0
+    );
     port (
         clk          : in  std_logic;
         rst          : in  std_logic;
@@ -53,8 +60,8 @@ architecture rtl of chua_core is
 
     -- State registers
     signal x_state    : signed(31 downto 0) := to_signed(6554,  32); -- 0.1
-    signal y_state    : signed(31 downto 0) := (others => '0');
-    signal z_state    : signed(31 downto 0) := (others => '0');
+    signal y_state    : signed(31 downto 0) := to_signed(Y0_INIT, 32);
+    signal z_state    : signed(31 downto 0) := to_signed(Z0_INIT, 32);
 
     -- Stage 0 outputs
     signal x_s0       : signed(31 downto 0) := (others => '0');
@@ -105,10 +112,10 @@ begin
     begin
         if rising_edge(clk) then
             if rst = '1' then
-                -- FIX: Initialize pipeline with initial conditions
-                x_s0 <= to_signed(6554, 32);  -- 0.1
-                y_s0 <= (others => '0');      -- 0.0
-                z_s0 <= (others => '0');      -- 0.0
+                -- FIX: Initialize pipeline with initial conditions (from generics)
+                x_s0 <= to_signed(6554, 32);             -- 0.1 (fixed)
+                y_s0 <= to_signed(Y0_INIT, 32);          -- from generic
+                z_s0 <= to_signed(Z0_INIT, 32);          -- from generic
                 x_p1_s0 <= to_signed(72090, 32);  -- 0.1 + 1.0 = 1.1
                 x_m1_s0 <= to_signed(-58982, 32); -- 0.1 - 1.0 = -0.9
             elsif enable = '1' then
