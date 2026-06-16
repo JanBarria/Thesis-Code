@@ -137,6 +137,10 @@ architecture structural of chaos_hybrid_single_board is
     -- to match what's in hdl/chua_core.vhd. The cleaned MyHDL-generated
     -- core in hdl/chua_core.vhd has these ports already.
     component chua_core is
+        generic (
+            Y0_INIT : integer := 0;
+            Z0_INIT : integer := 0
+        );
         port (
             clk          : in  std_logic;
             rst          : in  std_logic;
@@ -217,6 +221,7 @@ begin
     -- master's y/z due to negative conditional Lyapunov of the y-z subsystem.
     ----------------------------------------------------------------------------
     chua_master : chua_core
+        generic map (Y0_INIT => 0, Z0_INIT => 0)  -- (0.0, 0.0) — master IC
         port map (
             clk          => clk_pl,
             rst          => combined_rst,
@@ -231,6 +236,7 @@ begin
         );
 
     chua_slave : chua_core
+        generic map (Y0_INIT => 19661, Z0_INIT => 13107)  -- (0.3, 0.2) — distinct slave IC
         port map (
             clk          => clk_pl,
             rst          => combined_rst,
